@@ -1,10 +1,9 @@
-import { Schema, Types, type Document } from "mongoose";
+import { Schema, type Document } from "mongoose";
 
 export interface ICategory extends Document {
   name: string;
   slug: string;
   image: string;
-  parentCategory?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,11 +25,6 @@ export const CategorySchema = new Schema<ICategory>(
     image: {
       type: String,
       default: "",
-    },
-    parentCategory: {
-      type: Schema.Types.ObjectId,
-      ref: "Category",
-      default: null,
     },
   },
   {

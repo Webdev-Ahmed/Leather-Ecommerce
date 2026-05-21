@@ -1,5 +1,7 @@
 import express, { type Request, type Response } from "express";
 import cors from "cors";
+import { productRoutes, categoryRoutes, cartRoutes } from "./routes";
+import { errorHandler } from "./middleware/errorHandler";
 
 const app = express();
 
@@ -7,11 +9,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/**
- * GET /api/health
- * Quick liveness probe — confirms the server is running and DB is reachable.
- * Used by uptime monitors, load balancers, and CI smoke tests.
- */
 app.get("/api/health", (_req: Request, res: Response) => {
   res.status(200).json({
     status: "ok",
@@ -20,5 +17,9 @@ app.get("/api/health", (_req: Request, res: Response) => {
     environment: process.env.NODE_ENV ?? "development",
   });
 });
+
+app.use("/api/products", productRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/cart", cartRoutes);
 
 export default app;

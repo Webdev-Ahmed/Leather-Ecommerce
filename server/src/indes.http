@@ -1,0 +1,392 @@
+### ─────────────────────────────────────────────────────────────────────────
+### Leather E-Commerce — API Tests
+### Usage: Open in VS Code with the "REST Client" extension (humao.rest-client)
+###        Hit "Send Request" above any request to run it.
+###
+### Workflow:
+###   1. Run the Health check to confirm the server is up
+###   2. Create a Category first (products need a category ID)
+###   3. Copy the returned _id into @categoryId below
+###   4. Create a Product and copy its slug into @productSlug
+###   5. Run Cart and admin tests
+### ─────────────────────────────────────────────────────────────────────────
+
+@baseUrl    = http://localhost:3000/api
+@categoryId = 6a0edb02261d5b46c0d79416
+@productSlug = classic-bifold-wallet
+@productId  = PASTE_PRODUCT_ID_HERE
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### HEALTH
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 1. Health check
+GET {{baseUrl}}/health
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CATEGORIES — Public
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 2. Get all categories (empty on first run)
+GET {{baseUrl}}/categories
+
+###
+
+### 3. Get category by slug — valid slug
+GET {{baseUrl}}/categories/wallets
+
+###
+
+### 4. Get category by slug — should return 404
+GET {{baseUrl}}/categories/this-does-not-exist
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CATEGORIES — Admin (placeholder auth — passes through for now)
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 5. Create category — valid
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Wallets",
+  "slug": "wallets"
+}
+
+###
+
+### 6. Create category — duplicate slug (should return Mongoose unique error)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Wallets Duplicate",
+  "slug": "wallets"
+}
+
+###
+
+### 7. Create category — missing name (should return 422)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "slug": "bags"
+}
+
+###
+
+### 8. Create category — invalid slug format (should return 422)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Bags",
+  "slug": "Bags With Spaces!!"
+}
+
+###
+
+### 9. Create second category (copy its _id into @categoryId at the top)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Bags",
+  "slug": "bags"
+}
+
+###
+
+### 10. Update category — valid partial update
+PUT {{baseUrl}}/categories/wallets
+Content-Type: application/json
+
+{
+  "name": "Premium Wallets"
+}
+
+###
+
+### 11. Update category — slug that doesn't exist (should return 404)
+PUT {{baseUrl}}/categories/non-existent-slug
+Content-Type: application/json
+
+{
+  "name": "Ghost"
+}
+
+###
+
+### 12. Delete category — valid
+DELETE {{baseUrl}}/categories/bags
+
+###
+
+### 13. Delete category — already deleted or never existed (should return 404)
+DELETE {{baseUrl}}/categories/bags
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### PRODUCTS — Public
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 14. Get all products — default pagination
+GET {{baseUrl}}/products
+
+###
+
+### 15. Get products — custom page and limit
+GET {{baseUrl}}/products?page=1&limit=6
+
+###
+
+### 16. Get products — search by keyword
+GET {{baseUrl}}/products?search=leather
+
+###
+
+### 17. Get products — filter by category ID
+GET {{baseUrl}}/products?category={{categoryId}}
+
+###
+
+### 18. Get products — search + category combined
+GET {{baseUrl}}/products?search=wallet&category={{categoryId}}
+
+###
+
+### 19. Get products — invalid page (should return 422)
+GET {{baseUrl}}/products?page=0
+
+###
+
+### 20. Get products — limit over 50 (should be capped or return 422)
+GET {{baseUrl}}/products?limit=999
+
+###
+
+### 21. Get products — invalid category ID format (should return 422)
+GET {{baseUrl}}/products?category=not-a-mongo-id
+
+###
+
+### 22. Get product by slug — valid (update @productSlug at the top first)
+GET {{baseUrl}}/products/{{productSlug}}
+
+###
+
+### 23. Get product by slug — not found (should return 404)
+GET {{baseUrl}}/products/this-product-does-not-exist
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### PRODUCTS — Admin
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 24. Create product — valid (paste a real categoryId at the top first)
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "Classic Bifold Wallet",
+  "slug": "classic-bifold-wallet",
+  "description": "A slim, handcrafted genuine leather bifold wallet with 6 card slots.",
+  "price": 49.99,
+  "discountPrice": 39.99,
+  "category": "{{categoryId}}",
+  "stock": 100,
+  "isFeatured": true,
+  "images": [],
+  "tags": ["wallet", "leather", "bifold", "slim"]
+}
+
+###
+
+### 25. Create product — missing required fields (should return 422)
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "Incomplete Product"
+}
+
+###
+
+### 26. Create product — invalid slug format (should return 422)
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "Bad Slug",
+  "slug": "Bad Slug With Capitals",
+  "description": "Test",
+  "price": 10,
+  "category": "{{categoryId}}",
+  "stock": 5
+}
+
+###
+
+### 27. Create product — negative price (should return 422)
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "Negative Price",
+  "slug": "negative-price",
+  "description": "Test",
+  "price": -10,
+  "category": "{{categoryId}}",
+  "stock": 5
+}
+
+###
+
+### 28. Create product — discount price higher than price (should return Mongoose error)
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "Bad Discount",
+  "slug": "bad-discount",
+  "description": "Test",
+  "price": 20,
+  "discountPrice": 50,
+  "category": "{{categoryId}}",
+  "stock": 5
+}
+
+###
+
+### 29. Update product — valid partial update
+PUT {{baseUrl}}/products/{{productSlug}}
+Content-Type: application/json
+
+{
+  "price": 44.99,
+  "stock": 80
+}
+
+###
+
+### 30. Update product — not found (should return 404)
+PUT {{baseUrl}}/products/ghost-product
+Content-Type: application/json
+
+{
+  "price": 10
+}
+
+###
+
+### 31. Delete product — valid
+DELETE {{baseUrl}}/products/{{productSlug}}
+
+###
+
+### 32. Delete product — already deleted (should return 404)
+DELETE {{baseUrl}}/products/{{productSlug}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CART
+### NOTE: Cart routes require auth (userId on req). These will return errors
+###       until auth middleware is implemented. Tests are written ready for
+###       when auth lands — add an Authorization header at that point.
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 33. Get cart
+GET {{baseUrl}}/cart
+
+###
+
+### 34. Add item to cart — valid (use a real productId)
+POST {{baseUrl}}/cart
+Content-Type: application/json
+
+{
+  "productId": "{{productId}}",
+  "quantity": 2
+}
+
+###
+
+### 35. Add same item again — should increment quantity
+POST {{baseUrl}}/cart
+Content-Type: application/json
+
+{
+  "productId": "{{productId}}",
+  "quantity": 1
+}
+
+###
+
+### 36. Add to cart — invalid productId (should return 422)
+POST {{baseUrl}}/cart
+Content-Type: application/json
+
+{
+  "productId": "not-a-valid-mongo-id",
+  "quantity": 1
+}
+
+###
+
+### 37. Add to cart — quantity of 0 (should return 422)
+POST {{baseUrl}}/cart
+Content-Type: application/json
+
+{
+  "productId": "{{productId}}",
+  "quantity": 0
+}
+
+###
+
+### 38. Update cart item quantity
+PUT {{baseUrl}}/cart/{{productId}}
+Content-Type: application/json
+
+{
+  "quantity": 5
+}
+
+###
+
+### 39. Update cart item — invalid productId param (should return 422)
+PUT {{baseUrl}}/cart/not-a-mongo-id
+Content-Type: application/json
+
+{
+  "quantity": 3
+}
+
+###
+
+### 40. Update cart item — quantity 0 (should return 422)
+PUT {{baseUrl}}/cart/{{productId}}
+Content-Type: application/json
+
+{
+  "quantity": 0
+}
+
+###
+
+### 41. Remove specific item from cart
+DELETE {{baseUrl}}/cart/{{productId}}
+
+###
+
+### 42. Remove item — invalid productId (should return 422)
+DELETE {{baseUrl}}/cart/not-a-mongo-id
+
+###
+
+### 43. Clear entire cart
+DELETE {{baseUrl}}/cart
