@@ -1,0 +1,880 @@
+### ─────────────────────────────────────────────────────────────────────────
+### Leather E-Commerce — API Tests
+### Usage: Open in VS Code with the "REST Client" extension (humao.rest-client)
+###        Hit "Send Request" above any request to run it.
+###
+### Workflow:
+###   1. Health check to confirm server is up
+###   2. Register a user → copy accessToken into @accessToken
+###   3. Register/login an admin → copy accessToken into @adminToken
+###   4. Create a category → copy id into @categoryId
+###   5. Create a product → copy slug into @productSlug and id into @productId
+###   6. Run cart tests (requires @accessToken and @productId)
+### ─────────────────────────────────────────────────────────────────────────
+
+@baseUrl      = http://localhost:3000/api
+@accessToken  = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyNDY2ZTgxNi0wZDY3LTRjNTItOTRjYy1hNDhkMzIzYzYwMTYiLCJyb2xlIjoiY3VzdG9tZXIiLCJpYXQiOjE3ODAzMTI4NzAsImV4cCI6MTc4MDMxMzc3MCwiYXVkIjoicGVybi1lY29tbWVyY2UtY2xpZW50IiwiaXNzIjoicGVybi1lY29tbWVyY2UifQ.yNSzcTIjc4JIUotWT9Fv2nqN-JEOnwSzN1XQUF_9Fb4
+@adminToken   = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiNmFkMmUyMC03ZTJlLTRhZDktYTRjNi1kYzMyNzZkZjRhODciLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODAzMTI4OTEsImV4cCI6MTc4MDMxMzc5MSwiYXVkIjoicGVybi1lY29tbWVyY2UtY2xpZW50IiwiaXNzIjoicGVybi1lY29tbWVyY2UifQ.qP2M0yZ2wwttJ5l8UdbquQ1KHaACLxZZs5hQl8W5uZc
+@categoryId   = PASTE_CATEGORY_ID_HERE
+@productSlug  = PASTE_PRODUCT_SLUG_HERE
+@productId    = PASTE_PRODUCT_ID_HERE
+@googleIdToken = PASTE_GOOGLE_ID_TOKEN_HERE
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### HEALTH
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 1. Health check
+GET {{baseUrl}}/health
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### AUTH — Register
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 2. Register — valid (copy accessToken from response into @accessToken above)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Ahmed Test",
+  "email": "ahmed@example.com",
+  "password": "Password1",
+  "phone": "+92300000000",
+  "newsletterOptIn": true
+}
+
+###
+
+### 3. Register — duplicate email (should return 409)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Ahmed Again",
+  "email": "ahmed@example.com",
+  "password": "Password1"
+}
+
+###
+
+### 4. Register — missing name (should return 422)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "noname@example.com",
+  "password": "Password1"
+}
+
+###
+
+### 5. Register — weak password, no uppercase (should return 422)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Weak Pass",
+  "email": "weak@example.com",
+  "password": "password1"
+}
+
+###
+
+### 6. Register — weak password, no number (should return 422)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Weak Pass",
+  "email": "weak2@example.com",
+  "password": "Password"
+}
+
+###
+
+### 7. Register — password too short (should return 422)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Short Pass",
+  "email": "short@example.com",
+  "password": "P1a"
+}
+
+###
+
+### 8. Register — invalid email format (should return 422)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Bad Email",
+  "email": "not-an-email",
+  "password": "Password1"
+}
+
+###
+
+### 9. Register admin user (manually update role in DB to "admin", then login below)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Admin User",
+  "email": "admin@example.com",
+  "password": "AdminPass1"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### AUTH — Login
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 10. Login — valid (copy accessToken from response into @accessToken above)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "ahmed@example.com",
+  "password": "Password1"
+}
+
+###
+
+### 11. Login admin — valid (copy accessToken into @adminToken above)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "AdminPass1"
+}
+
+###
+
+### 12. Login — wrong password (should return 401)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "ahmed@example.com",
+  "password": "WrongPass1"
+}
+
+###
+
+### 13. Login — email not registered (should return 401, same message as wrong password)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "ghost@example.com",
+  "password": "Password1"
+}
+
+###
+
+### 14. Login — missing password (should return 422)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "ahmed@example.com"
+}
+
+###
+
+### 15. Login — empty body (should return 422)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### AUTH — Google OAuth
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 16. Google sign-in — valid (requires a real ID token from the frontend)
+POST {{baseUrl}}/auth/google
+Content-Type: application/json
+
+{
+  "idToken": "{{googleIdToken}}"
+}
+
+###
+
+### 17. Google sign-in — missing idToken (should return 400)
+POST {{baseUrl}}/auth/google
+Content-Type: application/json
+
+{}
+
+###
+
+### 18. Google sign-in — malformed token (should return 401)
+POST {{baseUrl}}/auth/google
+Content-Type: application/json
+
+{
+  "idToken": "this.is.not.a.real.google.token"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### AUTH — Token refresh
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 19. Refresh — valid (refreshToken is sent automatically via httpOnly cookie;
+###     if testing outside a browser you may need to copy the Set-Cookie header
+###     value from a login response and paste it as a Cookie header below)
+POST {{baseUrl}}/auth/refresh
+
+###
+
+### 20. Refresh — no cookie present (should return 401)
+### (send the request without any cookie — REST Client won't send cookies
+###  automatically so this naturally tests the missing-token path)
+POST {{baseUrl}}/auth/refresh
+X-No-Cookie: true
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### AUTH — Me (protected)
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 21. Get current user — valid
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{accessToken}}
+
+###
+
+### 22. Get current user — no token (should return 401)
+GET {{baseUrl}}/auth/me
+
+###
+
+### 23. Get current user — malformed token (should return 401)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer this.is.not.valid
+
+###
+
+### 24. Get current user — expired token (should return 401)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmYWtlLWlkIiwicm9sZSI6ImN1c3RvbWVyIiwiaWF0IjoxNjAwMDAwMDAwLCJleHAiOjE2MDAwMDAwMDF9.fake-signature
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### AUTH — Logout
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 25. Logout — valid (clears the refreshToken cookie)
+POST {{baseUrl}}/auth/logout
+
+###
+
+### 26. Logout all devices — valid (requires auth)
+POST {{baseUrl}}/auth/logout-all
+Authorization: Bearer {{accessToken}}
+
+###
+
+### 27. Logout all — no token (should return 401)
+POST {{baseUrl}}/auth/logout-all
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CATEGORIES — Public
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 28. Get all categories
+GET {{baseUrl}}/categories
+
+###
+
+### 29. Get category by slug — valid
+GET {{baseUrl}}/categories/wallets
+
+###
+
+### 30. Get category by slug — not found (should return 404)
+GET {{baseUrl}}/categories/this-does-not-exist
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CATEGORIES — Admin
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 31. Create category — valid (copy returned id into @categoryId above)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Wallets",
+  "slug": "wallets"
+}
+
+###
+
+### 32. Create category — duplicate slug (should return 409)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Wallets Duplicate",
+  "slug": "wallets"
+}
+
+###
+
+### 33. Create category — missing name (should return 422)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "slug": "bags"
+}
+
+###
+
+### 34. Create category — invalid slug format (should return 422)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Bags",
+  "slug": "Bags With Spaces!!"
+}
+
+###
+
+### 35. Create second category (copy id into @categoryId above)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Bags",
+  "slug": "bags"
+}
+
+###
+
+### 36. Create category — no auth token (should return 401)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Sneaky Category",
+  "slug": "sneaky"
+}
+
+###
+
+### 37. Create category — customer token, not admin (should return 403)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "name": "Customer Attempt",
+  "slug": "customer-attempt"
+}
+
+###
+
+### 38. Update category — valid
+PUT {{baseUrl}}/categories/wallets
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Premium Wallets"
+}
+
+###
+
+### 39. Update category — slug not found (should return 404)
+PUT {{baseUrl}}/categories/non-existent-slug
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Ghost"
+}
+
+###
+
+### 40. Update category — no auth (should return 401)
+PUT {{baseUrl}}/categories/wallets
+Content-Type: application/json
+
+{
+  "name": "Sneaky Update"
+}
+
+###
+
+### 41. Delete category — valid
+DELETE {{baseUrl}}/categories/bags
+Authorization: Bearer {{adminToken}}
+
+###
+
+### 42. Delete category — already deleted (should return 404)
+DELETE {{baseUrl}}/categories/bags
+Authorization: Bearer {{adminToken}}
+
+###
+
+### 43. Delete category — no auth (should return 401)
+DELETE {{baseUrl}}/categories/wallets
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### PRODUCTS — Public
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 44. Get all products — default pagination
+GET {{baseUrl}}/products
+
+###
+
+### 45. Get products — custom page and limit
+GET {{baseUrl}}/products?page=1&limit=6
+
+###
+
+### 46. Get products — search by keyword
+GET {{baseUrl}}/products?search=leather
+
+###
+
+### 47. Get products — filter by category ID
+GET {{baseUrl}}/products?category={{categoryId}}
+
+###
+
+### 48. Get products — filter by gender
+GET {{baseUrl}}/products?gender=men
+
+###
+
+### 49. Get products — search + category + gender combined
+GET {{baseUrl}}/products?search=wallet&category={{categoryId}}&gender=unisex
+
+###
+
+### 50. Get products — invalid page (should return 422)
+GET {{baseUrl}}/products?page=0
+
+###
+
+### 51. Get products — limit over 50 (should return 422)
+GET {{baseUrl}}/products?limit=999
+
+###
+
+### 52. Get products — invalid category UUID format (should return 422)
+GET {{baseUrl}}/products?category=not-a-uuid
+
+###
+
+### 53. Get product by slug — valid (update @productSlug above first)
+GET {{baseUrl}}/products/{{productSlug}}
+
+###
+
+### 54. Get product by slug — not found (should return 404)
+GET {{baseUrl}}/products/this-product-does-not-exist
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### PRODUCTS — Admin
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 55. Create product — valid (copy slug into @productSlug and id into @productId)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Classic Bifold Wallet",
+  "slug": "classic-bifold-wallet",
+  "description": "A slim, handcrafted genuine leather bifold wallet with 6 card slots.",
+  "price": 49.99,
+  "discountPrice": 39.99,
+  "categoryId": "{{categoryId}}",
+  "stock": 100,
+  "isFeatured": true,
+  "gender": "men",
+  "images": [],
+  "tags": ["wallet", "leather", "bifold", "slim"]
+}
+
+###
+
+### 56. Create product — missing required fields (should return 422)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Incomplete Product"
+}
+
+###
+
+### 57. Create product — invalid slug format (should return 422)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Bad Slug",
+  "slug": "Bad Slug With Capitals",
+  "description": "Test",
+  "price": 10,
+  "categoryId": "{{categoryId}}",
+  "stock": 5
+}
+
+###
+
+### 58. Create product — negative price (should return 422)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Negative Price",
+  "slug": "negative-price",
+  "description": "Test",
+  "price": -10,
+  "categoryId": "{{categoryId}}",
+  "stock": 5
+}
+
+###
+
+### 59. Create product — discount price higher than price (should return 422)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Bad Discount",
+  "slug": "bad-discount",
+  "description": "Test",
+  "price": 20,
+  "discountPrice": 50,
+  "categoryId": "{{categoryId}}",
+  "stock": 5
+}
+
+###
+
+### 60. Create product — invalid categoryId UUID (should return 422)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Bad Category",
+  "slug": "bad-category",
+  "description": "Test",
+  "price": 20,
+  "categoryId": "not-a-uuid",
+  "stock": 5
+}
+
+###
+
+### 61. Create product — categoryId not found in DB (should return 422)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Ghost Category",
+  "slug": "ghost-category",
+  "description": "Test",
+  "price": 20,
+  "categoryId": "00000000-0000-0000-0000-000000000000",
+  "stock": 5
+}
+
+###
+
+### 62. Create product — no auth (should return 401)
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "Sneaky Product",
+  "slug": "sneaky-product",
+  "description": "Test",
+  "price": 10,
+  "categoryId": "{{categoryId}}",
+  "stock": 1
+}
+
+###
+
+### 63. Create product — customer token (should return 403)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "name": "Customer Product",
+  "slug": "customer-product",
+  "description": "Test",
+  "price": 10,
+  "categoryId": "{{categoryId}}",
+  "stock": 1
+}
+
+###
+
+### 64. Update product — valid partial update
+PUT {{baseUrl}}/products/{{productSlug}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "price": 44.99,
+  "stock": 80
+}
+
+###
+
+### 65. Update product — not found (should return 404)
+PUT {{baseUrl}}/products/ghost-product
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "price": 10
+}
+
+###
+
+### 66. Update product — no auth (should return 401)
+PUT {{baseUrl}}/products/{{productSlug}}
+Content-Type: application/json
+
+{
+  "price": 1
+}
+
+###
+
+### 67. Delete product — valid
+DELETE {{baseUrl}}/products/{{productSlug}}
+Authorization: Bearer {{adminToken}}
+
+###
+
+### 68. Delete product — already deleted (should return 404)
+DELETE {{baseUrl}}/products/{{productSlug}}
+Authorization: Bearer {{adminToken}}
+
+###
+
+### 69. Delete product — no auth (should return 401)
+DELETE {{baseUrl}}/products/{{productSlug}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CART — all routes require auth (Authorization: Bearer {{accessToken}})
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 70. Get cart — valid (empty on first run)
+GET {{baseUrl}}/cart
+Authorization: Bearer {{accessToken}}
+
+###
+
+### 71. Get cart — no auth (should return 401)
+GET {{baseUrl}}/cart
+
+###
+
+### 72. Add item to cart — valid (use a real @productId above)
+POST {{baseUrl}}/cart
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "productId": "{{productId}}",
+  "quantity": 2
+}
+
+###
+
+### 73. Add same item again — should increment quantity, not duplicate
+POST {{baseUrl}}/cart
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "productId": "{{productId}}",
+  "quantity": 1
+}
+
+###
+
+### 74. Add to cart — invalid productId UUID (should return 422)
+POST {{baseUrl}}/cart
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "productId": "not-a-valid-uuid",
+  "quantity": 1
+}
+
+###
+
+### 75. Add to cart — product not found (should return 404)
+POST {{baseUrl}}/cart
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "productId": "00000000-0000-0000-0000-000000000000",
+  "quantity": 1
+}
+
+###
+
+### 76. Add to cart — quantity 0 (should return 422)
+POST {{baseUrl}}/cart
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "productId": "{{productId}}",
+  "quantity": 0
+}
+
+###
+
+### 77. Add to cart — quantity exceeds stock (should return 422)
+POST {{baseUrl}}/cart
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "productId": "{{productId}}",
+  "quantity": 99999
+}
+
+###
+
+### 78. Add to cart — no auth (should return 401)
+POST {{baseUrl}}/cart
+Content-Type: application/json
+
+{
+  "productId": "{{productId}}",
+  "quantity": 1
+}
+
+###
+
+### 79. Update cart item quantity — valid
+PUT {{baseUrl}}/cart/{{productId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "quantity": 5
+}
+
+###
+
+### 80. Update cart item — item not in cart (should return 404)
+PUT {{baseUrl}}/cart/00000000-0000-0000-0000-000000000000
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "quantity": 3
+}
+
+###
+
+### 81. Update cart item — quantity 0 (should return 422)
+PUT {{baseUrl}}/cart/{{productId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "quantity": 0
+}
+
+###
+
+### 82. Update cart item — quantity exceeds stock (should return 422)
+PUT {{baseUrl}}/cart/{{productId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "quantity": 99999
+}
+
+###
+
+### 83. Update cart item — no auth (should return 401)
+PUT {{baseUrl}}/cart/{{productId}}
+Content-Type: application/json
+
+{
+  "quantity": 2
+}
+
+###
+
+### 84. Remove specific item from cart — valid
+DELETE {{baseUrl}}/cart/{{productId}}
+Authorization: Bearer {{accessToken}}
+
+###
+
+### 85. Remove item — not in cart (should return 404)
+DELETE {{baseUrl}}/cart/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+
+###
+
+### 86. Remove item — no auth (should return 401)
+DELETE {{baseUrl}}/cart/{{productId}}
+
+###
+
+### 87. Clear entire cart — valid
+DELETE {{baseUrl}}/cart
+Authorization: Bearer {{accessToken}}
+
+###
+
+### 88. Clear cart — already empty (should return 404)
+DELETE {{baseUrl}}/cart
+Authorization: Bearer {{accessToken}}
+
+###
+
+### 89. Clear cart — no auth (should return 401)
+DELETE {{baseUrl}}/cart
