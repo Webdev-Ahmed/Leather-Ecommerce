@@ -1,7 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
 import { prisma } from "@/lib/db";
-import { CreateCategorySchema, UpdateCategorySchema } from "@/lib/validators";
-import { validate } from "@/lib/validators";
+import { AppError } from "@/middleware/errorHandler";
+import {
+  CreateCategorySchema,
+  UpdateCategorySchema,
+  validate,
+} from "@/lib/validators";
+import { uploadImage, deleteImage, extractPublicId } from "@/lib/cloudinary";
 
 // ─── GET /api/categories ──────────────────────────────────────────────────────
 
@@ -33,8 +38,7 @@ export async function getCategoryBySlug(
     const category = await prisma.category.findUnique({ where: { slug } });
 
     if (!category) {
-      res.status(404).json({ status: "error", message: "Category not found" });
-      return;
+      throw new AppError(404, "Category not found");
     }
 
     res.status(200).json({ status: "ok", data: category });
@@ -56,6 +60,7 @@ export async function createCategory(
 
     const existing = await prisma.category.findUnique({
       where: { slug: body.slug },
+      select: { id: true },
     });
     if (existing) {
       res.status(409).json({
@@ -66,7 +71,21 @@ export async function createCategory(
       return;
     }
 
-    const category = await prisma.category.create({ data: body });
+    // Upload image if a file was attached
+    let imageUrl = body.image ?? "";
+    if (req.file) {
+      const result = await uploadImage(req.file.buffer, "categories", {
+        // Use the slug as a deterministic public_id so re-uploading the same
+        // category replaces the image rather than creating a duplicate
+        publicId: body.slug,
+      });
+      imageUrl = result.url;
+    }
+
+    const category = await prisma.category.create({
+      data: { ...body, image: imageUrl },
+    });
+
     res.status(201).json({ status: "ok", data: category });
   } catch (err) {
     next(err);
@@ -86,11 +105,21 @@ export async function updateCategory(
     const body = validate(UpdateCategorySchema, req.body, res);
     if (!body) return;
 
+    // Fetch existing category for slug conflict check and old image cleanup
+    const existing = await prisma.category.findUnique({
+      where: { slug },
+      select: { id: true, image: true },
+    });
+    if (!existing) {
+      throw new AppError(404, "Category not found");
+    }
+
     if (body.slug && body.slug !== slug) {
-      const existing = await prisma.category.findUnique({
+      const conflict = await prisma.category.findUnique({
         where: { slug: body.slug },
+        select: { id: true },
       });
-      if (existing) {
+      if (conflict) {
         res.status(409).json({
           status: "error",
           message: `slug "${body.slug}" is already taken`,
@@ -100,9 +129,36 @@ export async function updateCategory(
       }
     }
 
+    let imageUrl: string | undefined;
+
+    if (req.file) {
+      // Upload the new image — use the new slug if it's changing, else the current one
+      const targetSlug = body.slug ?? slug;
+      const result = await uploadImage(req.file.buffer, "categories", {
+        publicId: targetSlug,
+      });
+      imageUrl = result.url;
+
+      // Delete the old image if it exists and isn't the same public_id
+      // (if slug didn't change the overwrite: true in uploadImage handles it,
+      // but if the slug changed we need to explicitly remove the old file)
+      if (existing.image && body.slug && body.slug !== slug) {
+        const oldPublicId = extractPublicId(existing.image);
+        deleteImage(oldPublicId).catch((err: unknown) => {
+          console.error(
+            "[Cloudinary] Failed to delete old category image:",
+            err,
+          );
+        });
+      }
+    }
+
     const category = await prisma.category.update({
       where: { slug },
-      data: body,
+      data: {
+        ...body,
+        ...(imageUrl !== undefined && { image: imageUrl }),
+      },
     });
 
     res.status(200).json({ status: "ok", data: category });
@@ -121,7 +177,25 @@ export async function deleteCategory(
   try {
     const { slug } = req.params as { slug: string };
 
+    const category = await prisma.category.findUnique({
+      where: { slug },
+      select: { image: true },
+    });
+
+    if (!category) {
+      throw new AppError(404, "Category not found");
+    }
+
     await prisma.category.delete({ where: { slug } });
+
+    // Clean up the Cloudinary image after the DB row is gone
+    if (category.image) {
+      const publicId = extractPublicId(category.image);
+      deleteImage(publicId).catch((err: unknown) => {
+        console.error("[Cloudinary] Failed to delete category image:", err);
+      });
+    }
+
     res.status(200).json({ status: "ok", message: "Category deleted" });
   } catch (err) {
     next(err);

@@ -1,10 +1,49 @@
 import type { NextFunction, Request, Response } from "express";
 import { prisma } from "@/lib/db";
+import { AppError } from "@/middleware/errorHandler";
+import { validate } from "@/lib/validators";
 import {
   CreateProductSchema,
   UpdateProductSchema,
 } from "@/schemas/product.schema";
-import { ProductQuerySchema, validate } from "@/lib/validators";
+import { ProductQuerySchema } from "@/lib/validators";
+import { uploadImages, deleteImages, extractPublicId } from "@/lib/cloudinary";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const variantSelect = {
+  id: true,
+  color: true,
+  colorHex: true,
+  size: true,
+  sku: true,
+  stock: true,
+  priceOverride: true,
+  images: true,
+} as const;
+
+const productSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  description: true,
+  price: true,
+  discountPrice: true,
+  images: true,
+  stock: true,
+  isFeatured: true,
+  gender: true,
+  tags: true,
+  createdAt: true,
+  updatedAt: true,
+  category: { select: { name: true, slug: true } },
+  variants: { select: variantSelect, orderBy: { color: "asc" as const } },
+} as const;
+
+function getUploadedBuffers(req: Request): Buffer[] {
+  const files = req.files as Record<string, Express.Multer.File[]> | undefined;
+  return files?.["images"]?.map((f) => f.buffer) ?? [];
+}
 
 // ─── GET /api/products ────────────────────────────────────────────────────────
 
@@ -35,7 +74,7 @@ export async function getProducts(
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
-        include: { category: { select: { name: true, slug: true } } },
+        select: productSelect,
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
@@ -72,12 +111,11 @@ export async function getProductBySlug(
 
     const product = await prisma.product.findUnique({
       where: { slug },
-      include: { category: { select: { name: true, slug: true } } },
+      select: productSelect,
     });
 
     if (!product) {
-      res.status(404).json({ status: "error", message: "Product not found" });
-      return;
+      throw new AppError(404, "Product not found");
     }
 
     res.status(200).json({ status: "ok", data: product });
@@ -97,9 +135,9 @@ export async function createProduct(
     const body = validate(CreateProductSchema, req.body, res);
     if (!body) return;
 
-    // Check for duplicate slug
     const existingSlug = await prisma.product.findUnique({
       where: { slug: body.slug },
+      select: { id: true },
     });
     if (existingSlug) {
       res.status(409).json({
@@ -110,9 +148,9 @@ export async function createProduct(
       return;
     }
 
-    // Verify the referenced category actually exists
     const categoryExists = await prisma.category.findUnique({
       where: { id: body.categoryId },
+      select: { id: true },
     });
     if (!categoryExists) {
       res.status(422).json({
@@ -123,9 +161,21 @@ export async function createProduct(
       return;
     }
 
+    const buffers = getUploadedBuffers(req);
+    const uploaded =
+      buffers.length > 0 ? await uploadImages(buffers, "products") : [];
+    const imageUrls = [...uploaded.map((r) => r.url), ...(body.images ?? [])];
+
+    const { variants, ...productData } = body;
+
     const product = await prisma.product.create({
-      data: body,
-      include: { category: { select: { name: true, slug: true } } },
+      data: {
+        ...productData,
+        images: imageUrls,
+        variants:
+          variants && variants.length > 0 ? { create: variants } : undefined,
+      },
+      select: productSelect,
     });
 
     res.status(201).json({ status: "ok", data: product });
@@ -147,11 +197,22 @@ export async function updateProduct(
     const body = validate(UpdateProductSchema, req.body, res);
     if (!body) return;
 
-    // If slug is being changed, make sure the new one isn't taken by a
-    // *different* product.
+    const existing = await prisma.product.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        images: true,
+        variants: { select: { id: true, images: true } },
+      },
+    });
+    if (!existing) {
+      throw new AppError(404, "Product not found");
+    }
+
     if (body.slug && body.slug !== slug) {
       const slugConflict = await prisma.product.findUnique({
         where: { slug: body.slug },
+        select: { id: true },
       });
       if (slugConflict) {
         res.status(409).json({
@@ -163,10 +224,10 @@ export async function updateProduct(
       }
     }
 
-    // If categoryId is being updated, verify it exists
     if (body.categoryId) {
       const categoryExists = await prisma.category.findUnique({
         where: { id: body.categoryId },
+        select: { id: true },
       });
       if (!categoryExists) {
         res.status(422).json({
@@ -178,10 +239,54 @@ export async function updateProduct(
       }
     }
 
-    const product = await prisma.product.update({
-      where: { slug },
-      data: body,
-      include: { category: { select: { name: true, slug: true } } },
+    const buffers = getUploadedBuffers(req);
+    const uploaded =
+      buffers.length > 0 ? await uploadImages(buffers, "products") : [];
+
+    let finalImages = existing.images;
+    if (buffers.length > 0 || body.images !== undefined) {
+      const keptUrls = body.images ?? existing.images;
+      finalImages = [...keptUrls, ...uploaded.map((r) => r.url)];
+
+      const removedUrls = existing.images.filter(
+        (url) => !keptUrls.includes(url),
+      );
+      if (removedUrls.length > 0) {
+        deleteImages(removedUrls.map(extractPublicId)).catch((err: unknown) => {
+          console.error(
+            "[Cloudinary] Failed to delete removed product images:",
+            err,
+          );
+        });
+      }
+    }
+
+    const { variants, ...productData } = body;
+
+    const product = await prisma.$transaction(async (tx) => {
+      // Upsert variants by id: update existing rows, create new ones.
+      // Never blindly delete — cart items and order items may reference them.
+      if (variants !== undefined) {
+        for (const variant of variants) {
+          const { id: variantId, ...variantData } = variant;
+          if (variantId) {
+            await tx.productVariant.update({
+              where: { id: variantId },
+              data: variantData,
+            });
+          } else {
+            await tx.productVariant.create({
+              data: { ...variantData, productId: existing.id },
+            });
+          }
+        }
+      }
+
+      return tx.product.update({
+        where: { slug },
+        data: { ...productData, images: finalImages },
+        select: productSelect,
+      });
     });
 
     res.status(200).json({ status: "ok", data: product });
@@ -200,8 +305,89 @@ export async function deleteProduct(
   try {
     const { slug } = req.params as { slug: string };
 
+    const product = await prisma.product.findUnique({
+      where: { slug },
+      select: {
+        images: true,
+        variants: { select: { images: true } },
+      },
+    });
+
+    if (!product) {
+      throw new AppError(404, "Product not found");
+    }
+
     await prisma.product.delete({ where: { slug } });
+
+    const allImages = [
+      ...product.images,
+      ...product.variants.flatMap((v) => v.images),
+    ];
+    if (allImages.length > 0) {
+      deleteImages(allImages.map(extractPublicId)).catch((err: unknown) => {
+        console.error("[Cloudinary] Failed to delete product images:", err);
+      });
+    }
+
     res.status(200).json({ status: "ok", message: "Product deleted" });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── DELETE /api/products/:slug/variants/:variantId ───────────────────────────
+// Only allowed when no active cart items or non-terminal orders reference the variant.
+
+export async function deleteVariant(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { variantId } = req.params as { variantId: string };
+
+    const variant = await prisma.productVariant.findUnique({
+      where: { id: variantId },
+      select: {
+        images: true,
+        cartItems: { select: { id: true }, take: 1 },
+        orderItems: {
+          select: { id: true },
+          where: { order: { status: { notIn: ["delivered", "cancelled"] } } },
+          take: 1,
+        },
+      },
+    });
+
+    if (!variant) {
+      throw new AppError(404, "Variant not found");
+    }
+
+    if (variant.cartItems.length > 0) {
+      throw new AppError(
+        409,
+        "This variant is in one or more customer carts and cannot be deleted",
+      );
+    }
+
+    if (variant.orderItems.length > 0) {
+      throw new AppError(
+        409,
+        "This variant has active orders and cannot be deleted until they are completed or cancelled",
+      );
+    }
+
+    await prisma.productVariant.delete({ where: { id: variantId } });
+
+    if (variant.images.length > 0) {
+      deleteImages(variant.images.map(extractPublicId)).catch(
+        (err: unknown) => {
+          console.error("[Cloudinary] Failed to delete variant images:", err);
+        },
+      );
+    }
+
+    res.status(200).json({ status: "ok", message: "Variant deleted" });
   } catch (err) {
     next(err);
   }

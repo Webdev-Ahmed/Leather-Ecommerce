@@ -6,7 +6,9 @@ import {
   updateCategory,
   deleteCategory,
 } from "@/controllers/category.controller";
+import { requireAuth } from "@/middleware/requireAuth";
 import { requireAdmin } from "@/middleware/requireAdmin";
+import { withUpload, uploadSingle } from "@/middleware/upload";
 
 const router = Router();
 
@@ -17,8 +19,22 @@ router.get("/:slug", getCategoryBySlug);
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
-router.post("/", requireAdmin, createCategory);
-router.put("/:slug", requireAdmin, updateCategory);
-router.delete("/:slug", requireAdmin, deleteCategory);
+router.post(
+  "/",
+  requireAuth,
+  requireAdmin,
+  withUpload(uploadSingle),
+  createCategory,
+);
+
+router.put(
+  "/:slug",
+  requireAuth,
+  requireAdmin,
+  withUpload(uploadSingle),
+  updateCategory,
+);
+
+router.delete("/:slug", requireAuth, requireAdmin, deleteCategory);
 
 export default router;

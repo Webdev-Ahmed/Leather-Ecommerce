@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { prisma } from "@/lib/db";
-import { validate, AddToCartSchema, UpdateCartSchema } from "@/lib/validators";
+import { validate } from "@/lib/validators";
+import { AddToCartSchema, UpdateCartSchema } from "@/lib/validators";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -9,6 +10,7 @@ const cartItemSelect = {
   quantity: true,
   product: {
     select: {
+      id: true,
       name: true,
       slug: true,
       price: true,
@@ -17,16 +19,19 @@ const cartItemSelect = {
       stock: true,
     },
   },
+  variant: {
+    select: {
+      id: true,
+      color: true,
+      colorHex: true,
+      size: true,
+      sku: true,
+      stock: true,
+      priceOverride: true,
+      images: true,
+    },
+  },
 } as const;
-
-function getUserId(req: Request, res: Response): string | null {
-  const userId = (req as Request & { userId?: string }).userId;
-  if (!userId) {
-    res.status(401).json({ status: "error", message: "Unauthorized" });
-    return null;
-  }
-  return userId;
-}
 
 // ─── GET /api/cart ────────────────────────────────────────────────────────────
 
@@ -36,11 +41,8 @@ export async function getCart(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const userId = getUserId(req, res);
-    if (!userId) return;
-
     const cart = await prisma.cart.findUnique({
-      where: { userId },
+      where: { userId: req.userId },
       select: { id: true, items: { select: cartItemSelect } },
     });
 
@@ -58,37 +60,70 @@ export async function addToCart(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const userId = getUserId(req, res);
-    if (!userId) return;
-
     const body = validate(AddToCartSchema, req.body, res);
     if (!body) return;
 
-    const { productId, quantity } = body;
+    const { productId, variantId, quantity } = body;
 
-    // Verify the product exists and has sufficient stock
     const product = await prisma.product.findUnique({
       where: { id: productId },
-      select: { stock: true },
+      select: { stock: true, variants: { select: { id: true } } },
     });
     if (!product) {
       res.status(404).json({ status: "error", message: "Product not found" });
       return;
     }
 
-    // Get existing cart item quantity (if any) to check combined stock
+    // When the product has variants, a variantId is required
+    if (product.variants.length > 0 && !variantId) {
+      res.status(422).json({
+        status: "error",
+        message: "This product has variants — please select a colour or size",
+        errors: [
+          {
+            field: "variantId",
+            message: "variantId is required for this product",
+          },
+        ],
+      });
+      return;
+    }
+
+    // Resolve the stock source: variant stock when a variant is selected,
+    // product-level stock otherwise
+    let availableStock = product.stock;
+
+    if (variantId) {
+      const variant = await prisma.productVariant.findUnique({
+        where: { id: variantId },
+        select: { stock: true, productId: true },
+      });
+
+      if (!variant || variant.productId !== productId) {
+        res.status(404).json({ status: "error", message: "Variant not found" });
+        return;
+      }
+
+      availableStock = variant.stock;
+    }
+
+    // Check combined quantity (already in cart + requested)
     const existingItem = await prisma.cartItem.findFirst({
-      where: { cart: { userId }, productId },
+      where: {
+        cart: { userId: req.userId },
+        productId,
+        variantId: variantId ?? null,
+      },
       select: { id: true, quantity: true },
     });
 
     const currentQty = existingItem?.quantity ?? 0;
     const newTotalQty = currentQty + quantity;
 
-    if (newTotalQty > product.stock) {
+    if (newTotalQty > availableStock) {
       res.status(422).json({
         status: "error",
-        message: `Only ${product.stock} unit(s) available (${currentQty} already in cart)`,
+        message: `Only ${availableStock} unit(s) available (${currentQty} already in cart)`,
         errors: [
           {
             field: "quantity",
@@ -100,10 +135,12 @@ export async function addToCart(
     }
 
     const cart = await prisma.cart.upsert({
-      where: { userId },
+      where: { userId: req.userId },
       create: {
-        userId,
-        items: { create: { productId, quantity } },
+        userId: req.userId,
+        items: {
+          create: { productId, variantId: variantId ?? null, quantity },
+        },
       },
       update: {
         items: existingItem
@@ -113,7 +150,7 @@ export async function addToCart(
                 data: { quantity: newTotalQty },
               },
             }
-          : { create: { productId, quantity } },
+          : { create: { productId, variantId: variantId ?? null, quantity } },
       },
       select: { id: true, items: { select: cartItemSelect } },
     });
@@ -124,7 +161,10 @@ export async function addToCart(
   }
 }
 
-// ─── PUT /api/cart/:productId ─────────────────────────────────────────────────
+// ─── PUT /api/cart/:cartItemId ────────────────────────────────────────────────
+// Route param is now cartItemId (not productId) — because the same product in
+// two different variants creates two separate cart rows, so productId alone
+// is no longer a unique identifier within the cart.
 
 export async function updateCartItem(
   req: Request,
@@ -132,37 +172,33 @@ export async function updateCartItem(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const userId = getUserId(req, res);
-    if (!userId) return;
-
     const body = validate(UpdateCartSchema, req.body, res);
     if (!body) return;
 
-    const { productId } = req.params as { productId: string };
+    const { cartItemId } = req.params as { cartItemId: string };
 
     const cartItem = await prisma.cartItem.findFirst({
-      where: { cart: { userId }, productId },
-      select: { id: true },
+      where: { id: cartItemId, cart: { userId: req.userId } },
+      select: {
+        id: true,
+        productId: true,
+        variantId: true,
+        product: { select: { stock: true } },
+        variant: { select: { stock: true } },
+      },
     });
 
     if (!cartItem) {
-      res.status(404).json({ status: "error", message: "Item not in cart" });
+      res.status(404).json({ status: "error", message: "Cart item not found" });
       return;
     }
 
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      select: { stock: true },
-    });
-    if (!product) {
-      res.status(404).json({ status: "error", message: "Product not found" });
-      return;
-    }
+    const availableStock = cartItem.variant?.stock ?? cartItem.product.stock;
 
-    if (body.quantity > product.stock) {
+    if (body.quantity > availableStock) {
       res.status(422).json({
         status: "error",
-        message: `Only ${product.stock} unit(s) available`,
+        message: `Only ${availableStock} unit(s) available`,
         errors: [
           {
             field: "quantity",
@@ -179,7 +215,7 @@ export async function updateCartItem(
     });
 
     const cart = await prisma.cart.findUnique({
-      where: { userId },
+      where: { userId: req.userId },
       select: { id: true, items: { select: cartItemSelect } },
     });
 
@@ -189,7 +225,7 @@ export async function updateCartItem(
   }
 }
 
-// ─── DELETE /api/cart/:productId ──────────────────────────────────────────────
+// ─── DELETE /api/cart/:cartItemId ─────────────────────────────────────────────
 
 export async function removeFromCart(
   req: Request,
@@ -197,25 +233,22 @@ export async function removeFromCart(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const userId = getUserId(req, res);
-    if (!userId) return;
-
-    const { productId } = req.params as { productId: string };
+    const { cartItemId } = req.params as { cartItemId: string };
 
     const cartItem = await prisma.cartItem.findFirst({
-      where: { cart: { userId }, productId },
+      where: { id: cartItemId, cart: { userId: req.userId } },
       select: { id: true },
     });
 
     if (!cartItem) {
-      res.status(404).json({ status: "error", message: "Item not in cart" });
+      res.status(404).json({ status: "error", message: "Cart item not found" });
       return;
     }
 
     await prisma.cartItem.delete({ where: { id: cartItem.id } });
 
     const cart = await prisma.cart.findUnique({
-      where: { userId },
+      where: { userId: req.userId },
       select: { id: true, items: { select: cartItemSelect } },
     });
 
@@ -233,11 +266,8 @@ export async function clearCart(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const userId = getUserId(req, res);
-    if (!userId) return;
-
     const cart = await prisma.cart.findUnique({
-      where: { userId },
+      where: { userId: req.userId },
       select: { id: true },
     });
 

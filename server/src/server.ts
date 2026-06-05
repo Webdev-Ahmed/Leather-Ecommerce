@@ -5,6 +5,8 @@ import {
   categoryRoutes,
   productRoutes,
   authRoutes,
+  orderRoutes,
+  addressRoutes,
 } from "./routes";
 import cookieParser from "cookie-parser";
 import { errorHandler, notFound } from "./middleware/errorHandler";
@@ -13,7 +15,13 @@ const app = express();
 
 // ─── Core middleware ──────────────────────────────────────────────────────────
 
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://localhost:5174"],
+    credentials: true,
+  }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -37,10 +45,12 @@ app.get("/api/health", (_req: Request, res: Response) => {
   });
 });
 
-app.use("/api/products", productRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/cart", cartRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/addresses", addressRoutes);
 
 // ─── Error handling ───────────────────────────────────────────────────────────
 

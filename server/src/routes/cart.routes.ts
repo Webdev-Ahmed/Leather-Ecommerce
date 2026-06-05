@@ -14,9 +14,10 @@ router.use(requireAuth);
 
 router.get("/", getCart);
 router.post("/", addToCart);
-
 router.delete("/", clearCart);
-router.put("/:productId", updateCartItem);
-router.delete("/:productId", removeFromCart);
+
+// :cartItemId instead of :productId — one product in two variants = two rows
+router.put("/:cartItemId", updateCartItem);
+router.delete("/:cartItemId", removeFromCart);
 
 export default router;

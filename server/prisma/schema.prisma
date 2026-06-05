@@ -125,8 +125,8 @@ model Product {
   description   String
   price         Float
   discountPrice Float?
-  images        String[]
-  stock         Int      @default(0)
+  images        String[] // base product images shown when no variant is selected
+  stock         Int      @default(0) // total fallback — used only when no variants exist
   isFeatured    Boolean  @default(false)
   gender        Gender   @default(unisex)
   tags          String[]
@@ -136,12 +136,33 @@ model Product {
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
 
+  variants   ProductVariant[]
   cartItems  CartItem[]
   orderItems OrderItem[]
 
   @@index([categoryId])
   @@index([gender])
   @@index([isFeatured])
+}
+
+model ProductVariant {
+  id            String   @id @default(uuid())
+  color         String? // display name e.g. "Midnight Black"
+  colorHex      String? // hex code e.g. "#1A1A1A" — drives colour swatch UI
+  size          String? // e.g. "Small", "Medium", "Large" — null for products with no size
+  sku           String?  @unique
+  stock         Int      @default(0)
+  priceOverride Float? // null = inherit product.price; set = variant has its own price
+  images        String[] // variant-specific images; falls back to product.images if empty
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@unique([productId, color, size]) // prevents duplicate colour+size combos on one product
+  @@index([productId])
 }
 
 model Cart {
@@ -163,7 +184,13 @@ model CartItem {
   productId String
   product   Product @relation(fields: [productId], references: [id])
 
-  @@unique([cartId, productId])
+  // null = no variant selected (product has no variants)
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+
+  // Unique per cart+product+variant combination so the same product in two
+  // different colours creates two separate cart rows, not one merged row
+  @@unique([cartId, productId, variantId])
 }
 
 model Order {
@@ -174,11 +201,10 @@ model Order {
   paymentStatus   PaymentStatus @default(unpaid)
   shippingAddress Json
   trackingNumber  String?
-
-  payfastToken String?
-  merchantRef  String?  @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  payfastToken    String?
+  merchantRef     String?       @unique
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   userId String
   user   User         @relation(fields: [userId], references: [id])
@@ -191,16 +217,24 @@ model Order {
 }
 
 model OrderItem {
-  id       String @id @default(uuid())
-  name     String
-  price    Float
+  id       String  @id @default(uuid())
+  name     String // product name snapshot
+  price    Float // effective price snapshot at time of order
   quantity Int
-  image    String @default("")
+  image    String  @default("")
+  // variant snapshots — preserved even if the variant is later deleted
+  color    String?
+  size     String?
+  sku      String?
 
   orderId   String
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String
   product   Product @relation(fields: [productId], references: [id])
+
+  // null = order placed for a product with no variants
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
 }
 
 model OrderEvent {

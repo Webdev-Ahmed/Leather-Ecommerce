@@ -80,6 +80,7 @@ export const ProductQuerySchema = z.object({
 
 export const AddToCartSchema = z.object({
   productId: z.uuid("Invalid product ID"),
+  variantId: z.uuid("Invalid variant ID").optional(),
   quantity: z
     .number()
     .int()

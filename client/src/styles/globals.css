@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* ─── Brand Colour Tokens (Section 4.1) ─── */
+    --color-primary: #0A0A0A;
+    --color-primary-foreground: #FFFFFF;
+    --color-accent: #B8960C;
+    --color-accent-light: #F5EDD6;
+    --color-surface: #F8F7F5;
+    --color-surface-card: #FFFFFF;
+    --color-text-primary: #0A0A0A;
+    --color-text-body: #2D2D2D;
+    --color-text-muted: #6B6B6B;
+    --color-border: #DDDDDD;
+    --color-danger: #991B1B;
+    --color-success: #166534;
+
+    /* ─── shadcn/ui semantic tokens ─── */
+    --background: var(--color-surface);
+    --foreground: var(--color-text-primary);
+    --card: var(--color-surface-card);
+    --card-foreground: var(--color-text-primary);
+    --popover: var(--color-surface-card);
+    --popover-foreground: var(--color-text-primary);
+    --primary: var(--color-primary);
+    --primary-foreground: var(--color-primary-foreground);
+    --secondary: var(--color-accent-light);
+    --secondary-foreground: var(--color-text-primary);
+    --muted: #F1F0EE;
+    --muted-foreground: var(--color-text-muted);
+    --accent: var(--color-accent-light);
+    --accent-foreground: var(--color-text-primary);
+    --destructive: var(--color-danger);
+    --destructive-foreground: #FFFFFF;
+    --border: var(--color-border);
+    --input: var(--color-border);
+    --ring: var(--color-accent);
+    --radius: 0.25rem;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-text-body);
+    font-family: var(--font-inter), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--color-text-primary);
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: #fff;
+  }
+}
+
+/* ─── Typography utilities ─── */
+@layer utilities {
+  .font-display {
+    font-family: var(--font-cormorant), 'Georgia', serif;
+  }
+
+  .font-body {
+    font-family: var(--font-inter), system-ui, sans-serif;
+  }
+
+  /* Price display: tabular numerals */
+  .font-price {
+    font-family: var(--font-inter), system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+}
+
+/* ─── Scrollbar styling ─── */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--color-border);
+    border-radius: 2px;
+  }
+}

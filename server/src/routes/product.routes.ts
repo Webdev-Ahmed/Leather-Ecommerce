@@ -5,8 +5,11 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  deleteVariant,
 } from "@/controllers/product.controller";
+import { requireAuth } from "@/middleware/requireAuth";
 import { requireAdmin } from "@/middleware/requireAdmin";
+import { withUpload, uploadMultiple } from "@/middleware/upload";
 
 const router = Router();
 
@@ -17,8 +20,28 @@ router.get("/:slug", getProductBySlug);
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
-router.post("/", requireAdmin, createProduct);
-router.put("/:slug", requireAdmin, updateProduct);
-router.delete("/:slug", requireAdmin, deleteProduct);
+router.post(
+  "/",
+  requireAuth,
+  requireAdmin,
+  withUpload(uploadMultiple),
+  createProduct,
+);
+router.put(
+  "/:slug",
+  requireAuth,
+  requireAdmin,
+  withUpload(uploadMultiple),
+  updateProduct,
+);
+router.delete("/:slug", requireAuth, requireAdmin, deleteProduct);
+
+// Variant delete — slug is context for the admin UI, variantId drives the operation
+router.delete(
+  "/:slug/variants/:variantId",
+  requireAuth,
+  requireAdmin,
+  deleteVariant,
+);
 
 export default router;
