@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { createHash, randomBytes } from "crypto";
 import { AppError } from "@/middleware/errorHandler";
+import type { Role } from "@/lib/roles";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -28,7 +29,7 @@ const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export interface AccessTokenPayload {
   sub: string; // userId
-  role: "customer" | "manager" | "admin";
+  role: Role;
 }
 
 export interface RefreshTokenPayload {

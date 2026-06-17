@@ -72,8 +72,13 @@ export const ProductQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(50).optional().default(12),
   search: z.string().max(100).optional(),
-  category: z.uuid("Invalid category ID").optional(),
+  category: z.string().trim().min(1).max(100).optional(),
   gender: z.enum(["men", "women", "unisex"]).optional(),
+  sort: z
+    .enum(["newest", "price_asc", "price_desc"])
+    .optional()
+    .default("newest"),
+  isFeatured: z.coerce.boolean().optional(),
 });
 
 // ─── Cart ─────────────────────────────────────────────────────────────────────

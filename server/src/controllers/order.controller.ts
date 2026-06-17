@@ -7,6 +7,7 @@ import {
   UpdateOrderStatusSchema,
   OrderQuerySchema,
 } from "@/schemas/order.schema";
+import { ADMIN_ROLES, hasRole } from "@/lib/roles";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,15 @@ const orderSelect = {
   },
 } as const;
 
+// All possible statuses in the natural progression order.
+// Used to build the tracking timeline on the GET /tracking endpoint.
+const STATUS_PROGRESSION = [
+  "pending",
+  "processing",
+  "shipped",
+  "delivered",
+] as const;
+
 // ─── GET /api/orders ──────────────────────────────────────────────────────────
 
 export async function getOrders(
@@ -53,7 +63,7 @@ export async function getOrders(
     if (!query) return;
 
     const { page, limit, status, paymentStatus, userId } = query;
-    const isAdmin = req.userRole === "admin" || req.userRole === "manager";
+    const isAdmin = hasRole(req.userRole, ADMIN_ROLES);
 
     const userFilter = isAdmin
       ? userId !== undefined
@@ -107,7 +117,7 @@ export async function getOrderById(
       throw new AppError(404, "Order not found");
     }
 
-    const isAdmin = req.userRole === "admin" || req.userRole === "manager";
+    const isAdmin = hasRole(req.userRole, ADMIN_ROLES);
 
     if (!isAdmin && order.userId !== req.userId) {
       throw new AppError(404, "Order not found");
@@ -116,6 +126,131 @@ export async function getOrderById(
     const { userId: _userId, ...orderData } = order;
 
     res.status(200).json({ status: "ok", data: orderData });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── GET /api/orders/:id/tracking ────────────────────────────────────────────
+//
+// Returns a structured tracking timeline built from the order's event log.
+// Each step in STATUS_PROGRESSION is emitted whether it has been reached or not,
+// so the frontend can render a consistent stepper UI without additional logic.
+//
+// Shape:
+// {
+//   orderId, status, trackingNumber, isCancelled,
+//   steps: [
+//     { status, label, completedAt, note, isCompleted, isCurrent }
+//   ],
+//   events: [ ...raw event log, newest first ]
+// }
+
+export async function getOrderTracking(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = req.params as { id: string };
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        trackingNumber: true,
+        userId: true,
+        createdAt: true,
+        events: {
+          select: { id: true, status: true, note: true, createdAt: true },
+          orderBy: { createdAt: "asc" },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new AppError(404, "Order not found");
+    }
+
+    const isAdmin = hasRole(req.userRole, ADMIN_ROLES);
+
+    if (!isAdmin && order.userId !== req.userId) {
+      throw new AppError(404, "Order not found");
+    }
+
+    const isCancelled = order.status === "cancelled";
+
+    // Build a lookup: status → earliest event that set it
+    const eventByStatus = new Map<
+      string,
+      { createdAt: Date; note: string | null }
+    >();
+
+    for (const event of order.events) {
+      if (!eventByStatus.has(event.status)) {
+        eventByStatus.set(event.status, {
+          createdAt: event.createdAt,
+          note: event.note,
+        });
+      }
+    }
+
+    // Determine which step index the order is currently at.
+    // Cancelled orders stay at the last reached progression step
+    // (the "cancelled" status is surfaced through isCancelled, not the steps).
+    const currentProgressionIndex = isCancelled
+      ? STATUS_PROGRESSION.indexOf(
+          (STATUS_PROGRESSION as readonly string[]).includes(order.status)
+            ? (order.status as (typeof STATUS_PROGRESSION)[number])
+            : "pending",
+        )
+      : STATUS_PROGRESSION.indexOf(
+          order.status as (typeof STATUS_PROGRESSION)[number],
+        );
+
+    const STEP_LABELS: Record<(typeof STATUS_PROGRESSION)[number], string> = {
+      pending: "Order Placed",
+      processing: "Processing",
+      shipped: "Shipped",
+      delivered: "Delivered",
+    };
+
+    const steps = STATUS_PROGRESSION.map((stepStatus, index) => {
+      const eventMatch = eventByStatus.get(stepStatus);
+      const isCompleted = index <= currentProgressionIndex;
+      const isCurrent =
+        !isCancelled && index === currentProgressionIndex;
+
+      return {
+        status: stepStatus,
+        label: STEP_LABELS[stepStatus],
+        completedAt: isCompleted ? (eventMatch?.createdAt ?? null) : null,
+        note: eventMatch?.note ?? null,
+        isCompleted,
+        isCurrent,
+      };
+    });
+
+    // Return the raw event log newest-first for the detailed history section
+    const events = [...order.events].reverse().map((e) => ({
+      id: e.id,
+      status: e.status,
+      note: e.note,
+      createdAt: e.createdAt,
+    }));
+
+    res.status(200).json({
+      status: "ok",
+      data: {
+        orderId: order.id,
+        status: order.status,
+        trackingNumber: order.trackingNumber,
+        isCancelled,
+        steps,
+        events,
+      },
+    });
   } catch (err) {
     next(err);
   }

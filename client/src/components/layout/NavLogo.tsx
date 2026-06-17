@@ -12,13 +12,13 @@ export function NavLogo({ isScrolled, onClose }: NavLogoProps) {
       href="/"
       onClick={onClose}
       className={cn(
-        'font-display text-2xl font-light tracking-[0.25em] uppercase transition-colors duration-300 select-none',
+        'font-display text-[1.15rem] sm:text-[1.25rem] font-light tracking-[0.3em] sm:tracking-[0.35em] uppercase transition-colors duration-300 select-none whitespace-nowrap',
         isScrolled
           ? 'text-[var(--color-text-primary)]'
           : 'text-[var(--color-primary-foreground)]'
       )}
     >
-      BRAND NAME
+      Leather Co.
     </Link>
   )
 }

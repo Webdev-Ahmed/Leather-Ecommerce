@@ -1,13 +1,14 @@
 import type { Request, Response, NextFunction } from "express";
 import { verifyAccessToken } from "@/lib/jwt";
 import { AppError } from "@/middleware/errorHandler";
+import type { Role } from "@/lib/roles";
 
 // Extend Express Request so controllers can access userId and role without casts
 declare global {
   namespace Express {
     interface Request {
       userId: string;
-      userRole: "customer" | "manager" | "admin";
+      userRole: Role;
     }
   }
 }

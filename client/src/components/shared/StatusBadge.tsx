@@ -12,11 +12,11 @@ const STATUS_MAP: Record<
     variant: "default" | "success" | "danger" | "warning" | "muted";
   }
 > = {
-  PENDING: { label: "Pending", variant: "warning" },
-  PROCESSING: { label: "Processing", variant: "default" },
-  SHIPPED: { label: "Shipped", variant: "muted" },
-  DELIVERED: { label: "Delivered", variant: "success" },
-  CANCELLED: { label: "Cancelled", variant: "danger" },
+  pending: { label: "Pending", variant: "warning" },
+  processing: { label: "Processing", variant: "default" },
+  shipped: { label: "Shipped", variant: "muted" },
+  delivered: { label: "Delivered", variant: "success" },
+  cancelled: { label: "Cancelled", variant: "danger" },
 };
 
 export function StatusBadge({ status }: StatusBadgeProps) {

@@ -7,6 +7,7 @@ import {
   logout,
   logoutAll,
   me,
+  updateMe,
 } from "@/controllers/auth.controller";
 import { requireAuth } from "@/middleware/requireAuth";
 
@@ -24,5 +25,6 @@ router.post("/logout", logout);
 
 router.post("/logout-all", requireAuth, logoutAll);
 router.get("/me", requireAuth, me);
+router.patch("/me", requireAuth, updateMe);
 
 export default router;

@@ -1,22 +1,25 @@
-import api from '@/lib/axios'
+import api from "@/lib/axios";
 import type {
   AppError,
   CreateOrderInput,
   Order,
   PaginatedResponse,
-} from '@/types/api'
-import { AxiosError } from 'axios'
+} from "@/types/api";
+import { AxiosError } from "axios";
 
 function toAppError(err: unknown): AppError {
   if (err instanceof AxiosError && err.response?.data) {
-    const data = err.response.data as { message?: string; errors?: AppError['errors'] }
+    const data = err.response.data as {
+      message?: string;
+      errors?: AppError["errors"];
+    };
     return {
-      message: data.message ?? 'An unexpected error occurred.',
+      message: data.message ?? "An unexpected error occurred.",
       errors: data.errors,
       statusCode: err.response.status,
-    }
+    };
   }
-  return { message: 'Could not connect to server. Please try again.' }
+  return { message: "Could not connect to server. Please try again." };
 }
 
 /**
@@ -25,13 +28,13 @@ function toAppError(err: unknown): AppError {
  */
 export async function createOrder(input: CreateOrderInput): Promise<Order> {
   try {
-    const { data } = await api.post<{ status: 'success'; data: Order }>(
-      '/orders',
-      input
-    )
-    return data.data
+    const { data } = await api.post<{ status: "ok"; data: Order }>(
+      "/orders",
+      input,
+    );
+    return data.data;
   } catch (err) {
-    throw toAppError(err)
+    throw toAppError(err);
   }
 }
 
@@ -41,15 +44,15 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
  */
 export async function getOrders(
   page = 1,
-  limit = 10
+  limit = 10,
 ): Promise<PaginatedResponse<Order>> {
   try {
-    const { data } = await api.get<PaginatedResponse<Order>>('/orders', {
+    const { data } = await api.get<PaginatedResponse<Order>>("/orders", {
       params: { page, limit },
-    })
-    return data
+    });
+    return data;
   } catch (err) {
-    throw toAppError(err)
+    throw toAppError(err);
   }
 }
 
@@ -59,12 +62,12 @@ export async function getOrders(
  */
 export async function getOrder(id: string): Promise<Order> {
   try {
-    const { data } = await api.get<{ status: 'success'; data: Order }>(
-      `/orders/${id}`
-    )
-    return data.data
+    const { data } = await api.get<{ status: "ok"; data: Order }>(
+      `/orders/${id}`,
+    );
+    return data.data;
   } catch (err) {
-    throw toAppError(err)
+    throw toAppError(err);
   }
 }
 
@@ -74,11 +77,11 @@ export async function getOrder(id: string): Promise<Order> {
  */
 export async function cancelOrder(id: string): Promise<Order> {
   try {
-    const { data } = await api.patch<{ status: 'success'; data: Order }>(
-      `/orders/${id}/cancel`
-    )
-    return data.data
+    const { data } = await api.patch<{ status: "ok"; data: Order }>(
+      `/orders/${id}/cancel`,
+    );
+    return data.data;
   } catch (err) {
-    throw toAppError(err)
+    throw toAppError(err);
   }
 }

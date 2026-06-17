@@ -18,8 +18,8 @@ const ShippingAddressSchema = z.object({
 
 export const CreateOrderSchema = z
   .object({
-    paymentMethod: z.enum(["cod", "payfast"], {
-      error: 'Payment method must be "cod" or "payfast"',
+    paymentMethod: z.enum(["cod", "payfast", "jazzcash", "easypaisa"], {
+      error: 'Payment method must be "cod", "payfast", "jazzcash", or "easypaisa"',
     }),
     // Optionally pass a saved address ID to pre-fill the snapshot.
     // If both are provided, addressId is used to fetch the address and

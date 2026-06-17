@@ -12,10 +12,10 @@
 ###   6. Run cart tests (requires @accessToken and @productId)
 ### ─────────────────────────────────────────────────────────────────────────
 
-@baseUrl      = http://localhost:3000/api
+@baseUrl      = http://localhost:4008/api
 @accessToken  = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyNDY2ZTgxNi0wZDY3LTRjNTItOTRjYy1hNDhkMzIzYzYwMTYiLCJyb2xlIjoiY3VzdG9tZXIiLCJpYXQiOjE3ODAzMTI4NzAsImV4cCI6MTc4MDMxMzc3MCwiYXVkIjoicGVybi1lY29tbWVyY2UtY2xpZW50IiwiaXNzIjoicGVybi1lY29tbWVyY2UifQ.yNSzcTIjc4JIUotWT9Fv2nqN-JEOnwSzN1XQUF_9Fb4
-@adminToken   = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiNmFkMmUyMC03ZTJlLTRhZDktYTRjNi1kYzMyNzZkZjRhODciLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODAzMTI4OTEsImV4cCI6MTc4MDMxMzc5MSwiYXVkIjoicGVybi1lY29tbWVyY2UtY2xpZW50IiwiaXNzIjoicGVybi1lY29tbWVyY2UifQ.qP2M0yZ2wwttJ5l8UdbquQ1KHaACLxZZs5hQl8W5uZc
-@categoryId   = PASTE_CATEGORY_ID_HERE
+@adminToken   = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlYzlhODA1ZS05MDk2LTRlNDktOWY3Yi05ZTRhZmQ2YzkwNzMiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODEwMDkwODEsImV4cCI6MTc4MTAwOTk4MSwiYXVkIjoicGVybi1lY29tbWVyY2UtY2xpZW50IiwiaXNzIjoicGVybi1lY29tbWVyY2UifQ.mycEqs7FQvYE9xsuyLZhdNRRzGTRl5Zmyw1sPic3bgw
+@categoryId   = 3c10dea8-89d1-46f8-bd38-49b5dc2f590f
 @productSlug  = PASTE_PRODUCT_SLUG_HERE
 @productId    = PASTE_PRODUCT_ID_HERE
 @googleIdToken = PASTE_GOOGLE_ID_TOKEN_HERE
@@ -40,6 +40,19 @@ Content-Type: application/json
 {
   "name": "Ahmed Test",
   "email": "ahmed@example.com",
+  "password": "Password1",
+  "phone": "+92300000000",
+  "newsletterOptIn": true
+}
+
+###
+
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Ahmed Test",
+  "email": "soebr311@gmail.com",
   "password": "Password1",
   "phone": "+92300000000",
   "newsletterOptIn": true
@@ -508,15 +521,14 @@ Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 {
-  "name": "Classic Bifold Wallet",
-  "slug": "classic-bifold-wallet",
+  "name": "Bag Two",
+  "slug": "bag-two",
   "description": "A slim, handcrafted genuine leather bifold wallet with 6 card slots.",
   "price": 49.99,
-  "discountPrice": 39.99,
-  "categoryId": "{{categoryId}}",
+  "categoryId": "f199f41d-9d57-4a35-b212-003004e560c6",
   "stock": 100,
-  "isFeatured": true,
-  "gender": "men",
+  "isFeatured": false,
+  "gender": "women",
   "images": [],
   "tags": ["wallet", "leather", "bifold", "slim"]
 }

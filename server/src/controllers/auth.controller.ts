@@ -5,7 +5,14 @@ import { AppError } from "@/middleware/errorHandler";
 import { issueTokenPair, verifyRefreshToken, hashToken } from "@/lib/jwt";
 import { verifyGoogleIdToken } from "@/lib/oauth";
 import { validate } from "@/lib/validators";
-import { RegisterSchema, LoginSchema } from "@/schemas/auth.schema";
+import {
+  RegisterSchema,
+  LoginSchema,
+  UpdateMeSchema,
+} from "@/schemas/auth.schema";
+import { sendEmail } from "@/lib/resend";
+import { welcomeEmail } from "@/lib/email-templates";
+import type { Role } from "@/lib/roles";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -30,7 +37,7 @@ function sanitizeUser(user: {
   email: string;
   phone: string | null;
   avatarUrl: string | null;
-  role: "customer" | "manager" | "admin";
+  role: Role;
   newsletterOptIn: boolean;
   createdAt: Date;
 }) {
@@ -109,6 +116,10 @@ export async function register(
     });
 
     sendTokens(res, accessToken, refreshToken);
+    const { subject, html } = welcomeEmail({ name, email });
+    sendEmail({ to: email, subject, html }).catch((err: unknown) => {
+      console.error("[Resend] Welcome email failed:", err);
+    });
 
     res.status(201).json({
       status: "ok",
@@ -437,6 +448,54 @@ export async function logoutAll(
     res.status(200).json({
       status: "ok",
       message: "Logged out from all devices",
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── PATCH /api/auth/me ──────────────────────────────────────────────────────
+
+export async function updateMe(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const userId = (req as Request & { userId?: string }).userId;
+
+    if (!userId) {
+      throw new AppError(401, "Authentication required");
+    }
+
+    const body = validate(UpdateMeSchema, req.body, res);
+    if (!body) return;
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: body,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        avatarUrl: true,
+        role: true,
+        newsletterOptIn: true,
+        createdAt: true,
+        updatedAt: true,
+        password: true,
+        accounts: { select: { provider: true } },
+      },
+    });
+
+    res.status(200).json({
+      status: "ok",
+      data: {
+        ...sanitizeUser(user),
+        hasPassword: user.password !== null,
+        linkedProviders: user.accounts.map((a) => a.provider),
+      },
     });
   } catch (err) {
     next(err);

@@ -20,3 +20,10 @@ export const LoginSchema = z.object({
 
 export type RegisterInput = z.infer<typeof RegisterSchema>;
 export type LoginInput = z.infer<typeof LoginSchema>;
+
+export const UpdateMeSchema = z.object({
+  name: z.string().min(1).max(100).trim().optional(),
+  phone: z.string().trim().optional().nullable(),
+  newsletterOptIn: z.boolean().optional(),
+});
+export type UpdateMeInput = z.infer<typeof UpdateMeSchema>;

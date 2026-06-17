@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getOrders,
   getOrderById,
+  getOrderTracking,
   createOrder,
   updateOrderStatus,
   cancelOrder,
@@ -18,6 +19,7 @@ router.use(requireAuth);
 
 router.get("/", getOrders);
 router.get("/:id", getOrderById);
+router.get("/:id/tracking", getOrderTracking);
 router.post("/", createOrder);
 router.patch("/:id/cancel", cancelOrder);
 

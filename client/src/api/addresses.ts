@@ -1,22 +1,25 @@
-import api from '@/lib/axios'
+import api from "@/lib/axios";
 import type {
   Address,
   AppError,
   CreateAddressInput,
   UpdateAddressInput,
-} from '@/types/api'
-import { AxiosError } from 'axios'
+} from "@/types/api";
+import { AxiosError } from "axios";
 
 function toAppError(err: unknown): AppError {
   if (err instanceof AxiosError && err.response?.data) {
-    const data = err.response.data as { message?: string; errors?: AppError['errors'] }
+    const data = err.response.data as {
+      message?: string;
+      errors?: AppError["errors"];
+    };
     return {
-      message: data.message ?? 'An unexpected error occurred.',
+      message: data.message ?? "An unexpected error occurred.",
       errors: data.errors,
       statusCode: err.response.status,
-    }
+    };
   }
-  return { message: 'Could not connect to server. Please try again.' }
+  return { message: "Could not connect to server. Please try again." };
 }
 
 /**
@@ -25,12 +28,12 @@ function toAppError(err: unknown): AppError {
  */
 export async function getAddresses(): Promise<Address[]> {
   try {
-    const { data } = await api.get<{ status: 'success'; data: Address[] }>(
-      '/addresses'
-    )
-    return data.data
+    const { data } = await api.get<{ status: "ok"; data: Address[] }>(
+      "/addresses",
+    );
+    return data.data;
   } catch (err) {
-    throw toAppError(err)
+    throw toAppError(err);
   }
 }
 
@@ -38,15 +41,17 @@ export async function getAddresses(): Promise<Address[]> {
  * POST /addresses
  * Add a new address.
  */
-export async function createAddress(input: CreateAddressInput): Promise<Address> {
+export async function createAddress(
+  input: CreateAddressInput,
+): Promise<Address> {
   try {
-    const { data } = await api.post<{ status: 'success'; data: Address }>(
-      '/addresses',
-      input
-    )
-    return data.data
+    const { data } = await api.post<{ status: "ok"; data: Address }>(
+      "/addresses",
+      input,
+    );
+    return data.data;
   } catch (err) {
-    throw toAppError(err)
+    throw toAppError(err);
   }
 }
 
@@ -56,16 +61,16 @@ export async function createAddress(input: CreateAddressInput): Promise<Address>
  */
 export async function updateAddress(
   id: string,
-  input: UpdateAddressInput
+  input: UpdateAddressInput,
 ): Promise<Address> {
   try {
-    const { data } = await api.put<{ status: 'success'; data: Address }>(
+    const { data } = await api.put<{ status: "ok"; data: Address }>(
       `/addresses/${id}`,
-      input
-    )
-    return data.data
+      input,
+    );
+    return data.data;
   } catch (err) {
-    throw toAppError(err)
+    throw toAppError(err);
   }
 }
 
@@ -75,9 +80,9 @@ export async function updateAddress(
  */
 export async function deleteAddress(id: string): Promise<void> {
   try {
-    await api.delete(`/addresses/${id}`)
+    await api.delete(`/addresses/${id}`);
   } catch (err) {
-    throw toAppError(err)
+    throw toAppError(err);
   }
 }
 
@@ -87,11 +92,11 @@ export async function deleteAddress(id: string): Promise<void> {
  */
 export async function setDefaultAddress(id: string): Promise<Address> {
   try {
-    const { data } = await api.patch<{ status: 'success'; data: Address }>(
-      `/addresses/${id}/default`
-    )
-    return data.data
+    const { data } = await api.patch<{ status: "ok"; data: Address }>(
+      `/addresses/${id}/default`,
+    );
+    return data.data;
   } catch (err) {
-    throw toAppError(err)
+    throw toAppError(err);
   }
 }

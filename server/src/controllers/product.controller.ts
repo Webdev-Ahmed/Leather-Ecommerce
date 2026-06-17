@@ -56,26 +56,42 @@ export async function getProducts(
     const query = validate(ProductQuerySchema, req.query, res);
     if (!query) return;
 
-    const { page, limit, search, category, gender } = query;
+    const { page, limit, search, category, gender, sort, isFeatured } = query;
     const skip = (page - 1) * limit;
 
     const where = {
-      ...(category && { categoryId: category }),
+      ...(category && {
+        OR: [{ categoryId: category }, { category: { slug: category } }],
+      }),
       ...(gender && { gender }),
+      ...(isFeatured !== undefined && { isFeatured }),
       ...(search && {
-        OR: [
-          { name: { contains: search, mode: "insensitive" as const } },
-          { description: { contains: search, mode: "insensitive" as const } },
-          { tags: { has: search } },
+        AND: [
+          {
+            OR: [
+              { name: { contains: search, mode: "insensitive" as const } },
+              {
+                description: { contains: search, mode: "insensitive" as const },
+              },
+              { tags: { has: search } },
+            ],
+          },
         ],
       }),
     };
+
+    const orderBy =
+      sort === "price_asc"
+        ? { price: "asc" as const }
+        : sort === "price_desc"
+          ? { price: "desc" as const }
+          : { createdAt: "desc" as const };
 
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
         select: productSelect,
-        orderBy: { createdAt: "desc" },
+        orderBy,
         skip,
         take: limit,
       }),

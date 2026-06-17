@@ -4,3 +4,8 @@ export { default as productRoutes } from "./product.routes";
 export { default as cartRoutes } from "./cart.routes";
 export { default as orderRoutes } from "./order.routes";
 export { default as addressRoutes } from "./address.routes";
+export { default as payfastRoutes } from "./payfast.routes";
+export { default as jazzcashRoutes } from "./jazzcash.routes";
+export { default as easypaisaRoutes } from "./easypaisa.routes";
+export { default as newsletterRoutes } from "./newsletter.routes";
+export { default as userRoutes } from "./user.routes";

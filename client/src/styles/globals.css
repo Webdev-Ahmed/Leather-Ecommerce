@@ -1,104 +1,142 @@
 @import "tailwindcss";
 
 @layer base {
-  :root {
-    /* ─── Brand Colour Tokens (Section 4.1) ─── */
-    --color-primary: #0A0A0A;
-    --color-primary-foreground: #FFFFFF;
-    --color-accent: #B8960C;
-    --color-accent-light: #F5EDD6;
-    --color-surface: #F8F7F5;
-    --color-surface-card: #FFFFFF;
-    --color-text-primary: #0A0A0A;
-    --color-text-body: #2D2D2D;
-    --color-text-muted: #6B6B6B;
-    --color-border: #DDDDDD;
-    --color-danger: #991B1B;
-    --color-success: #166534;
+    :root {
+        /* ─── Brand Colour Tokens (Section 4.1) ─── */
+        --color-primary: #0a0a0a;
+        --color-primary-foreground: #ffffff;
+        --color-accent: #b8960c;
+        --color-accent-light: #f5edd6;
+        --color-surface: #f8f7f5;
+        --color-surface-card: #ffffff;
+        --color-text-primary: #0a0a0a;
+        --color-text-body: #2d2d2d;
+        --color-text-muted: #6b6b6b;
+        --color-border: #dddddd;
+        --color-danger: #991b1b;
+        --color-success: #166534;
 
-    /* ─── shadcn/ui semantic tokens ─── */
-    --background: var(--color-surface);
-    --foreground: var(--color-text-primary);
-    --card: var(--color-surface-card);
-    --card-foreground: var(--color-text-primary);
-    --popover: var(--color-surface-card);
-    --popover-foreground: var(--color-text-primary);
-    --primary: var(--color-primary);
-    --primary-foreground: var(--color-primary-foreground);
-    --secondary: var(--color-accent-light);
-    --secondary-foreground: var(--color-text-primary);
-    --muted: #F1F0EE;
-    --muted-foreground: var(--color-text-muted);
-    --accent: var(--color-accent-light);
-    --accent-foreground: var(--color-text-primary);
-    --destructive: var(--color-danger);
-    --destructive-foreground: #FFFFFF;
-    --border: var(--color-border);
-    --input: var(--color-border);
-    --ring: var(--color-accent);
-    --radius: 0.25rem;
-  }
+        /* ─── shadcn/ui semantic tokens ─── */
+        --background: var(--color-surface);
+        --foreground: var(--color-text-primary);
+        --card: var(--color-surface-card);
+        --card-foreground: var(--color-text-primary);
+        --popover: var(--color-surface-card);
+        --popover-foreground: var(--color-text-primary);
+        --primary: var(--color-primary);
+        --primary-foreground: var(--color-primary-foreground);
+        --secondary: var(--color-accent-light);
+        --secondary-foreground: var(--color-text-primary);
+        --muted: #f1f0ee;
+        --muted-foreground: var(--color-text-muted);
+        --accent: var(--color-accent-light);
+        --accent-foreground: var(--color-text-primary);
+        --destructive: var(--color-danger);
+        --destructive-foreground: #ffffff;
+        --border: var(--color-border);
+        --input: var(--color-border);
+        --ring: var(--color-accent);
+        --radius: 0.25rem;
+    }
 }
 
 @layer base {
-  * {
-    border-color: var(--color-border);
-  }
+    * {
+        border-color: var(--color-border);
+    }
 
-  body {
-    background-color: var(--color-surface);
-    color: var(--color-text-body);
-    font-family: var(--font-inter), system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+    html {
+        scroll-behavior: smooth;
+    }
 
-  h1, h2, h3, h4, h5, h6 {
-    color: var(--color-text-primary);
-  }
+    body {
+        background-color: var(--color-surface);
+        color: var(--color-text-body);
+        font-family: var(--font-inter), system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        overflow-y: scroll;
+        /* overflow-x clip stops horizontal scroll without creating a stacking
+           context (unlike hidden) — safe to use alongside overflow-y: scroll */
+        overflow-x: clip;
+    }
 
-  ::selection {
-    background-color: var(--color-accent);
-    color: #fff;
-  }
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        color: var(--color-text-primary);
+        text-rendering: optimizeLegibility;
+    }
+
+    ::selection {
+        background-color: var(--color-accent);
+        color: #fff;
+    }
 }
 
 /* ─── Typography utilities ─── */
 @layer utilities {
-  .font-display {
-    font-family: var(--font-cormorant), 'Georgia', serif;
-  }
+    .font-display {
+        font-family: var(--font-cormorant), "Georgia", serif;
+    }
 
-  .font-body {
-    font-family: var(--font-inter), system-ui, sans-serif;
-  }
+    .font-body {
+        font-family: var(--font-inter), system-ui, sans-serif;
+    }
 
-  /* Price display: tabular numerals */
-  .font-price {
-    font-family: var(--font-inter), system-ui, sans-serif;
-    font-variant-numeric: tabular-nums;
-    font-weight: 500;
-  }
+    /* Price display: tabular numerals */
+    .font-price {
+        font-family: var(--font-inter), system-ui, sans-serif;
+        font-variant-numeric: tabular-nums;
+        font-weight: 500;
+    }
+}
+
+/* ─── Hero chevron bounce (CSS keeps it off the JS thread) ─── */
+@keyframes heroBounce {
+    0%,
+    100% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    50% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(8px);
+    }
+}
+
+.hero-chevron-bounce {
+    animation: heroBounce 1.6s ease-in-out infinite;
 }
 
 /* ─── Scrollbar styling ─── */
 @layer utilities {
-  .scrollbar-thin {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-border) transparent;
-  }
+    .scrollbar-thin {
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-border) transparent;
+    }
 
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
+    .scrollbar-thin::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+    }
 
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-  }
+    .scrollbar-thin::-webkit-scrollbar-track {
+        background: transparent;
+    }
 
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: var(--color-border);
-    border-radius: 2px;
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+        background-color: var(--color-border);
+        border-radius: 2px;
+    }
+}
+
+/* ─── Custom size utilities ─── */
+@layer utilities {
+  .h-13 {
+    height: 3.25rem; /* 52px — between h-12 (48px) and h-14 (56px) */
   }
 }

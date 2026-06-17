@@ -1,17 +1,20 @@
-import api from '@/lib/axios'
-import type { AppError, Category } from '@/types/api'
-import { AxiosError } from 'axios'
+import api from "@/lib/axios";
+import type { AppError, Category } from "@/types/api";
+import { AxiosError } from "axios";
 
 function toAppError(err: unknown): AppError {
   if (err instanceof AxiosError && err.response?.data) {
-    const data = err.response.data as { message?: string; errors?: AppError['errors'] }
+    const data = err.response.data as {
+      message?: string;
+      errors?: AppError["errors"];
+    };
     return {
-      message: data.message ?? 'An unexpected error occurred.',
+      message: data.message ?? "An unexpected error occurred.",
       errors: data.errors,
       statusCode: err.response.status,
-    }
+    };
   }
-  return { message: 'Could not connect to server. Please try again.' }
+  return { message: "Could not connect to server. Please try again." };
 }
 
 /**
@@ -20,12 +23,12 @@ function toAppError(err: unknown): AppError {
  */
 export async function getCategories(): Promise<Category[]> {
   try {
-    const { data } = await api.get<{ status: 'success'; data: Category[] }>(
-      '/categories'
-    )
-    return data.data
+    const { data } = await api.get<{ status: "ok"; data: Category[] }>(
+      "/categories",
+    );
+    return data.data;
   } catch (err) {
-    throw toAppError(err)
+    throw toAppError(err);
   }
 }
 
@@ -35,11 +38,11 @@ export async function getCategories(): Promise<Category[]> {
  */
 export async function getCategory(slug: string): Promise<Category> {
   try {
-    const { data } = await api.get<{ status: 'success'; data: Category }>(
-      `/categories/${slug}`
-    )
-    return data.data
+    const { data } = await api.get<{ status: "ok"; data: Category }>(
+      `/categories/${slug}`,
+    );
+    return data.data;
   } catch (err) {
-    throw toAppError(err)
+    throw toAppError(err);
   }
 }

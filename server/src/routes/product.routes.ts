@@ -10,6 +10,7 @@ import {
 import { requireAuth } from "@/middleware/requireAuth";
 import { requireAdmin } from "@/middleware/requireAdmin";
 import { withUpload, uploadMultiple } from "@/middleware/upload";
+import reviewRoutes from "./review.routes";
 
 const router = Router();
 
@@ -43,5 +44,9 @@ router.delete(
   requireAdmin,
   deleteVariant,
 );
+
+// ─── Reviews (nested) ─────────────────────────────────────────────────────────
+
+router.use("/:slug/reviews", reviewRoutes);
 
 export default router;
